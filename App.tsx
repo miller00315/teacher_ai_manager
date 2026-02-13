@@ -103,10 +103,8 @@ const App: React.FC = () => {
     const [roleCheckAttempted, setRoleCheckAttempted] = useState(false);
     const loginProcessingRef = useRef(false);
     const signInProcessingRef = useRef(false);
-    
-    // Use ref to keep client stable and prevent useEffect from re-running
-    const clientRef = useRef(getSupabaseClient());
-    const client = clientRef.current;
+
+    const client = getSupabaseClient();
 
     const fetchRole = useCallback(async (uid: string): Promise<void> => {
         if (!client) {
@@ -213,25 +211,27 @@ const App: React.FC = () => {
 
     useEffect(() => {
         let mounted = true;
-        let isTabVisible = !document.hidden;
-        let visibilityBlocked = false;
-        let subscription: any = null;
+        let isTabVisible = typeof document !== 'undefined' ? !document.hidden : true;
+        let lastVisibilityChange = Date.now();
+        const VISIBILITY_DEBOUNCE_MS = 500; // Wait 500ms after visibility change before processing events
 
-        // Track tab visibility to prevent updates when tab is not visible
+        // Listen to visibility changes to prevent actions when tab is not visible
         const handleVisibilityChange = () => {
-            const wasVisible = isTabVisible;
+            if (typeof document === 'undefined') return;
+            const wasHidden = !isTabVisible;
             isTabVisible = !document.hidden;
+            lastVisibilityChange = Date.now();
             
-            // If tab just became visible, block all auth events for a longer period
-            // This prevents Supabase from triggering reloads when tab regains focus
-            if (!wasVisible && isTabVisible) {
-                visibilityBlocked = true;
-                setTimeout(() => {
-                    visibilityBlocked = false;
-                }, 5000); // Block for 5 seconds to ensure no events are processed
+            // If tab just became visible, wait a bit before processing any events
+            if (!wasHidden && isTabVisible) {
+                // Tab just became visible - ignore events for a short period
+                return;
             }
         };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+        }
 
         if (client) {
             setIsConnected(true);
@@ -272,13 +272,18 @@ const App: React.FC = () => {
 
             initAuth();
 
-            const { data: { subscription: authSubscription } } = client.auth.onAuthStateChange(async (event, session) => {
+            const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
                 if (!mounted) return;
                 
-                // Completely ignore ALL events when tab is not visible or just became visible
-                // This prevents Supabase from triggering ANY state changes that could cause reloads
-                if (!isTabVisible || visibilityBlocked) {
-                    return; // Silently ignore to prevent any state changes
+                // Ignore all events when tab is not visible to prevent unnecessary state changes
+                if (typeof document !== 'undefined' && (document.hidden || !isTabVisible)) {
+                    return;
+                }
+                
+                // Ignore events immediately after visibility change to prevent reloads
+                const timeSinceVisibilityChange = Date.now() - lastVisibilityChange;
+                if (timeSinceVisibilityChange < VISIBILITY_DEBOUNCE_MS) {
+                    return;
                 }
 
                 if (event === 'SIGNED_IN') {
@@ -348,28 +353,69 @@ const App: React.FC = () => {
                 }
             });
 
-            // Disabled session check interval to prevent reloads when tab regains focus
-            // The Supabase onAuthStateChange listener handles session state changes
-            // No need for periodic checks that can cause unnecessary reloads
-            const sessionCheckInterval: NodeJS.Timeout | null = null;
+            // Only check session when tab is visible to avoid unnecessary checks when tab is in background
+            const sessionCheckInterval = setInterval(async () => {
+                if (!mounted) return;
+                
+                // Skip session check if tab is not visible (user switched to another tab)
+                if (typeof document !== 'undefined' && (document.hidden || !isTabVisible)) {
+                    return;
+                }
 
-            subscription = authSubscription;
-            
+                const { data: { session: currentSession } } = await client.auth.getSession();
+                if (!currentSession) {
+                    return;
+                }
+
+                try {
+                    const { data: { session: checkedSession }, error } = await client.auth.getSession();
+
+                    // Only sign out if there's a real error, not just a missing session
+                    // This prevents unnecessary reloads when the tab regains focus
+                    if (error) {
+                        console.warn("Session check error:", error);
+                        // Don't automatically sign out on errors - let Supabase handle token refresh
+                    } else if (!checkedSession) {
+                        // Session expired, update state without reloading
+                        if (mounted) {
+                            setSession(null);
+                            setUserRole('Student');
+                            setAuthLoading(false);
+                        }
+                    } else {
+                        const expiresAt = checkedSession.expires_at;
+                        if (expiresAt) {
+                            const now = Math.floor(Date.now() / 1000);
+                            const timeLeft = expiresAt - now;
+                            // Only sign out if session is actually expired (with small buffer)
+                            if (timeLeft < -60) { // 60 second buffer to avoid race conditions
+                                if (mounted) {
+                                    setSession(null);
+                                    setUserRole('Student');
+                                    setAuthLoading(false);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Session check error - don't reload, just log
+                    console.warn("Session check exception:", err);
+                }
+            }, 30000);
+
             return () => {
                 mounted = false;
-                if (subscription) {
-                    subscription.unsubscribe();
-                }
-                document.removeEventListener('visibilitychange', handleVisibilityChange);
-                if (sessionCheckInterval) {
-                    clearInterval(sessionCheckInterval);
+                subscription.unsubscribe();
+                clearInterval(sessionCheckInterval);
+                if (typeof document !== 'undefined') {
+                    document.removeEventListener('visibilitychange', handleVisibilityChange);
                 }
             };
         } else {
             setAuthLoading(false);
             setIsConnected(false);
         }
-    }, []); // Empty dependency array - only run once on mount
+    }, [client]);
 
     useEffect(() => {
         if (session && !authLoading && userRole === 'Student' && !roleCheckAttempted) {
@@ -449,9 +495,7 @@ const App: React.FC = () => {
         );
     }
 
-    // Remove key prop to prevent remounts - session changes shouldn't cause remounts
-    // The component should handle session prop changes gracefully without remounting
-    return <TeacherLayout session={session} isConnected={isConnected} />;
+    return <TeacherLayout session={session} isConnected={isConnected} key={session?.user?.id || 'no-session'} />;
 };
 
 export default App;
