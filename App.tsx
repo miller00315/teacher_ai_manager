@@ -103,8 +103,30 @@ const App: React.FC = () => {
     const [roleCheckAttempted, setRoleCheckAttempted] = useState(false);
     const loginProcessingRef = useRef(false);
     const signInProcessingRef = useRef(false);
+    const accessDeniedLogoutTriggeredRef = useRef(false);
 
     const client = getSupabaseClient();
+
+    // Quando o acesso for negado: fazer logout e voltar à tela de login
+    useEffect(() => {
+        if (!session) {
+            accessDeniedLogoutTriggeredRef.current = false;
+            return;
+        }
+        const accessDenied =
+            !authLoading &&
+            (userRole !== 'Teacher' || (userRole === 'Student' && roleCheckAttempted));
+        if (!accessDenied || !client || accessDeniedLogoutTriggeredRef.current) return;
+        accessDeniedLogoutTriggeredRef.current = true;
+        signOut().then(() => {
+            setSession(null);
+            setUserRole('Student');
+            setRoleCheckAttempted(false);
+        }).catch(() => {
+            setSession(null);
+            setUserRole('Student');
+        });
+    }, [session, authLoading, userRole, roleCheckAttempted, client]);
 
     const fetchRole = useCallback(async (uid: string): Promise<void> => {
         if (!client) {
@@ -468,9 +490,13 @@ const App: React.FC = () => {
                             <AlertCircle size={32} />
                         </div>
                         <h2 className="text-2xl font-bold text-slate-900 mb-2">Acesso Negado</h2>
-                        <p className="text-slate-600 text-center text-sm">
-                            Esta aplicação é exclusiva para Professores. Por favor, acesse a aplicação correta para seu perfil.
+                        <p className="text-slate-600 text-center text-sm mb-4">
+                            Esta aplicação é exclusiva para Professores. Encerrando sessão e redirecionando para o login.
                         </p>
+                        <div className="flex items-center gap-2 text-slate-500 text-sm">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span>Redirecionando para o login...</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -486,9 +512,13 @@ const App: React.FC = () => {
                             <AlertCircle size={32} />
                         </div>
                         <h2 className="text-2xl font-bold text-slate-900 mb-2">Erro ao Carregar Perfil</h2>
-                        <p className="text-slate-600 text-center text-sm">
-                            Não foi possível determinar seu perfil de usuário. Por favor, recarregue a página ou entre em contato com o suporte.
+                        <p className="text-slate-600 text-center text-sm mb-4">
+                            Não foi possível determinar seu perfil. Encerrando sessão e redirecionando para o login.
                         </p>
+                        <div className="flex items-center gap-2 text-slate-500 text-sm">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span>Redirecionando para o login...</span>
+                        </div>
                     </div>
                 </div>
             </div>

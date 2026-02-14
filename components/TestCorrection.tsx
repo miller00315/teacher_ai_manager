@@ -656,7 +656,7 @@ const TestCorrection: React.FC<TestCorrectionProps> = ({ hasSupabase, onViewTest
                                     >
                                         <option value="">{t('testCorrection.guestUnregistered')}</option>
                                         {students.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name} ({s.grade_level}) - {s.student_hash}</option>
+                                            <option key={s.id} value={s.id}>{s.name} ({(s as any).school_grades?.name ?? '-'}) - {s.student_hash}</option>
                                         ))}
                                     </select>
                                     {selectedStudentId && onViewStudent && (

@@ -108,7 +108,7 @@ export class TestReleaseUseCases {
     async getReleasesByInstitution(id: string, includeDeleted?: boolean) { return this.repo.getReleasesByInstitution(id, includeDeleted); }
     async getReleasesByClass(id: string) { return this.repo.getReleasesByClass(id); }
     async getReleasesByStudent(id: string) { return this.repo.getReleasesByStudent(id); }
-    async getReleasesByProfessor(id: string, includeDeleted?: boolean) { return this.repo.getReleasesByProfessor(id, includeDeleted); }
+    async getReleasesByProfessor(id: string, includeDeleted?: boolean, testId?: string) { return this.repo.getReleasesByProfessor(id, includeDeleted, testId); }
     async createRelease(release: Partial<TestRelease>, sites?: Partial<TestReleaseSite>[]) { return this.repo.createRelease(release, sites); }
     async createBulkReleases(base: Partial<TestRelease>, sIds: string[], sites?: Partial<TestReleaseSite>[]) { return this.repo.createBulkReleases(base, sIds, sites); }
     async deleteRelease(id: string) { return this.repo.deleteRelease(id); }

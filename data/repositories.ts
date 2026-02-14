@@ -1208,7 +1208,7 @@ export class TestReleaseRepositoryImpl implements ITestReleaseRepository {
     async getReleases(includeDeleted = false): Promise<TestRelease[]> {
         let query = this.supabase
             .from('test_releases')
-            .select('*, tests(title, school_grades(name)), students(app_users(first_name, last_name), student_hash, classes(id, name), school_grades(id, name), grade_level), professors(app_users(first_name, last_name))')
+            .select('*, tests(title, school_grades(name)), students(app_users(first_name, last_name), student_hash, classes(id, name), school_grades(id, name)), professors(app_users(first_name, last_name))')
             .order('created_at', { ascending: false });
 
         if (!includeDeleted) {
@@ -1242,7 +1242,7 @@ export class TestReleaseRepositoryImpl implements ITestReleaseRepository {
     async getReleasesByInstitution(institutionId: string, includeDeleted = false): Promise<TestRelease[]> {
         let query = this.supabase
             .from('test_releases')
-            .select('*, tests(title, school_grades(name)), students(app_users(first_name, last_name), student_hash, classes(id, name), school_grades(id, name), grade_level), professors(app_users(first_name, last_name))')
+            .select('*, tests(title, school_grades(name)), students(app_users(first_name, last_name), student_hash, classes(id, name), school_grades(id, name)), professors(app_users(first_name, last_name))')
             .eq('institution_id', institutionId)
             .order('created_at', { ascending: false });
 
@@ -1310,311 +1310,60 @@ export class TestReleaseRepositoryImpl implements ITestReleaseRepository {
         })) as any;
     }
 
-    async getReleasesByProfessor(professorId: string, includeDeleted = false): Promise<TestRelease[]> {
-        try {
-            // Primeiro, buscar as liberações básicas
-            let query = this.supabase
-                .from('test_releases')
-                .select('*')
-                .eq('professor_id', professorId)
-                .order('start_time', { ascending: false });
+    async getReleasesByProfessor(professorId: string, includeDeleted = false, testId?: string): Promise<TestRelease[]> {
+        let query = this.supabase
+            .from('test_releases')
+            .select('*, tests(title, school_grades(name)), students(app_users(first_name, last_name), student_hash, classes(id, name), school_grades(id, name), age), professors(app_users(first_name, last_name)), institutions(name)')
+            .eq('professor_id', professorId)
+            .order('start_time', { ascending: false });
 
-            if (!includeDeleted) {
-                query = query.or('deleted.is.null,deleted.eq.false');
-            }
-
-            const { data, error } = await query;
-            if (error) {
-                throw error;
-            }
-
-            if (!data) {
-                return [];
-            }
-
-            // Buscar dados relacionados separadamente
-            const releasesWithRelations = await Promise.all(
-                data.map(async (r: any) => {
-                    // Buscar dados da prova
-                    let testData: any = null;
-                    if (r.test_id) {
-                        try {
-                            const { data: test } = await this.supabase
-                                .from('tests')
-                                .select('title, school_grades(name)')
-                                .eq('id', r.test_id)
-                                .maybeSingle();
-                            testData = test;
-                        } catch (testError) {
-                            // Silently fail - test data will be null
-                        }
-                    }
-
-                    // Buscar dados do professor
-                    let professorData: any = null;
-                    if (r.professor_id) {
-                        try {
-                            const { data: prof } = await this.supabase
-                                .from('professors')
-                                .select('id, app_users(first_name, last_name)')
-                                .eq('id', r.professor_id)
-                                .maybeSingle();
-                            if (prof) {
-                                const appUsers = Array.isArray(prof.app_users) ? prof.app_users[0] : prof.app_users;
-                                professorData = {
-                                    ...prof,
-                                    name: `${appUsers?.first_name || ''} ${appUsers?.last_name || ''}`.trim()
-                                };
-                            }
-                        } catch (profError) {
-                            // Silently fail - professor data will be null
-                        }
-                    }
-
-                    // Buscar dados do aluno com informações completas
-                    // IMPORTANTE: Todas as releases devem ter um student_id, então sempre devemos buscar
-                    let studentData: any = null;
-
-                    // Verificar se student_id existe e não é vazio
-                    if (!r.student_id || r.student_id.trim() === '') {
-                        // Release sem student_id - será tratado como erro
-                    } else {
-                        try {
-
-                            // PRIMEIRO: Tentar buscar o aluno de forma simples (sem relações) para verificar se existe
-                            const { data: studentBasic, error: basicError } = await this.supabase
-                                .from('students')
-                                .select('id, deleted, user_id, class_id, institution_id, grade_id')
-                                .eq('id', r.student_id)
-                                .maybeSingle();
-
-                            if (basicError) {
-                                // Error fetching student - will be handled below
-                            } else if (!studentBasic) {
-                                studentData = {
-                                    id: r.student_id,
-                                    name: 'Aluno não encontrado',
-                                    deleted: true,
-                                    notFound: true
-                                };
-                            } else {
-
-                                // AGORA: Buscar com todas as relações
-                                const { data: student, error: studentError } = await this.supabase
-                                    .from('students')
-                                    .select(`
-                                        id,
-                                        student_hash,
-                                        grade_level,
-                                        age,
-                                        class_id,
-                                        institution_id,
-                                        deleted,
-                                        app_users(first_name, last_name, email),
-                                        school_grades(name),
-                                        classes(id, name),
-                                        institutions(name)
-                                    `)
-                                    .eq('id', r.student_id)
-                                    .maybeSingle();
-
-                                if (studentError) {
-                                    // Se a query básica funcionou mas a com relações falhou, buscar relações separadamente
-                                    if (studentBasic && !basicError) {
-
-                                        // Buscar app_users separadamente
-                                        let appUserData: any = null;
-                                        if (studentBasic.user_id) {
-                                            try {
-                                                const { data: appUser, error: appUserError } = await this.supabase
-                                                    .from('app_users')
-                                                    .select('first_name, last_name, email')
-                                                    .eq('id', studentBasic.user_id)
-                                                    .maybeSingle();
-                                                if (!appUserError) {
-                                                    appUserData = appUser;
-                                                }
-                                            } catch {
-                                                // Silently fail
-                                            }
-                                        }
-
-                                        // Buscar school_grades separadamente
-                                        let gradeData: any = null;
-                                        if (studentBasic.grade_id) {
-                                            try {
-                                                const { data: grade } = await this.supabase
-                                                    .from('school_grades')
-                                                    .select('name')
-                                                    .eq('id', studentBasic.grade_id)
-                                                    .maybeSingle();
-                                                gradeData = grade;
-                                            } catch {
-                                                // Silently fail
-                                            }
-                                        }
-
-                                        // Buscar classes separadamente
-                                        let classData: any = null;
-                                        if (studentBasic.class_id) {
-                                            try {
-                                                const { data: cls } = await this.supabase
-                                                    .from('classes')
-                                                    .select('id, name')
-                                                    .eq('id', studentBasic.class_id)
-                                                    .maybeSingle();
-                                                classData = cls;
-                                            } catch {
-                                                // Silently fail
-                                            }
-                                        }
-
-                                        // Buscar institutions separadamente
-                                        let institutionData: any = null;
-                                        if (studentBasic.institution_id) {
-                                            try {
-                                                const { data: inst } = await this.supabase
-                                                    .from('institutions')
-                                                    .select('name')
-                                                    .eq('id', studentBasic.institution_id)
-                                                    .maybeSingle();
-                                                institutionData = inst;
-                                            } catch {
-                                                // Silently fail
-                                            }
-                                        }
-
-                                        // Buscar student_hash e outros campos básicos
-                                        const { data: studentFull, error: fullError } = await this.supabase
-                                            .from('students')
-                                            .select('student_hash, grade_level, age')
-                                            .eq('id', r.student_id)
-                                            .maybeSingle();
-
-                                        studentData = {
-                                            ...studentBasic,
-                                            ...(studentFull || {}),
-                                            app_users: appUserData,
-                                            school_grades: gradeData,
-                                            classes: classData,
-                                            institutions: institutionData,
-                                            name: appUserData ? `${appUserData.first_name || ''} ${appUserData.last_name || ''}`.trim() : 'Nome não disponível',
-                                            email: appUserData?.email,
-                                            hasPartialData: true,
-                                            relationError: studentError.message
-                                        };
-                                    } else {
-                                        // Mesmo com erro, criar um objeto para indicar problema
-                                        studentData = {
-                                            id: r.student_id,
-                                            name: 'Erro ao buscar aluno',
-                                            error: studentError.message,
-                                            hasError: true
-                                        };
-                                    }
-                                } else if (student) {
-                                    // Verificar se app_users foi retornado
-                                    const appUsers = Array.isArray(student.app_users) ? student.app_users[0] : student.app_users;
-
-                                    const studentName = appUsers
-                                        ? `${appUsers.first_name || ''} ${appUsers.last_name || ''}`.trim()
-                                        : 'Nome não disponível';
-
-                                    if (student.deleted) {
-                                        studentData = {
-                                            ...student,
-                                            app_users: appUsers,
-                                            name: studentName || 'Aluno Deletado',
-                                            email: appUsers?.email,
-                                            deleted: true
-                                        };
-                                    } else {
-                                        studentData = {
-                                            ...student,
-                                            app_users: appUsers,
-                                            name: studentName,
-                                            email: appUsers?.email,
-                                            deleted: false
-                                        };
-                                    }
-                                } else {
-                                    // Aluno não encontrado na query com relações, mas pode ter sido encontrado na query básica
-                                    if (studentBasic && !basicError) {
-                                        // Usar os dados básicos que já temos
-                                        studentData = {
-                                            ...studentBasic,
-                                            name: 'Dados básicos apenas',
-                                            hasPartialData: true,
-                                            notFound: false
-                                        };
-                                    } else {
-                                        // Aluno realmente não encontrado
-                                        studentData = {
-                                            id: r.student_id,
-                                            name: 'Aluno não encontrado',
-                                            deleted: true,
-                                            notFound: true
-                                        };
-                                    }
-                                }
-                            }
-                        } catch (studentError: any) {
-                            studentData = {
-                                id: r.student_id,
-                                name: 'Erro ao buscar aluno',
-                                error: studentError?.message || 'Unknown error',
-                                hasError: true
-                            };
-                        }
-                    }
-
-                    // Buscar allowed_sites
-                    let allowedSites: any[] = [];
-                    try {
-                        const { data: sites } = await this.supabase
-                            .from('test_release_sites')
-                            .select('*')
-                            .eq('test_release_id', r.id);
-                        allowedSites = sites || [];
-                    } catch {
-                        // Silently fail
-                    }
-
-                    // Buscar dados da instituição
-                    let institutionData: any = null;
-                    if (r.institution_id) {
-                        try {
-                            const { data: inst } = await this.supabase
-                                .from('institutions')
-                                .select('name')
-                                .eq('id', r.institution_id)
-                                .maybeSingle();
-                            institutionData = inst;
-                        } catch {
-                            // Silently fail
-                        }
-                    }
-
-                    // Garantir que student_id seja sempre preservado, mesmo se a busca falhar
-                    const finalRelease = {
-                        ...r,
-                        student_id: r.student_id, // SEMPRE preservar o student_id original da query
-                        tests: testData,
-                        professors: professorData,
-                        students: studentData, // Pode ser null se não encontrou, mas student_id deve estar presente
-                        institutions: institutionData,
-                        allowed_sites: allowedSites,
-                        location_polygon: r.location_polygon || null
-                    };
-
-                    return finalRelease;
-                })
-            );
-
-            return releasesWithRelations as any;
-        } catch (err: any) {
-            throw err;
+        if (!includeDeleted) {
+            query = query.or('deleted.is.null,deleted.eq.false');
         }
+        if (testId) {
+            query = query.eq('test_id', testId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) return [];
+
+        const releases = data.map((r: any) => {
+            const studentData = r.students ? {
+                ...r.students,
+                name: `${r.students.app_users?.first_name || ''} ${r.students.app_users?.last_name || ''}`.trim(),
+                classes: r.students.classes || null,
+                school_grades: r.students.school_grades || null,
+                app_users: r.students.app_users || null
+            } : null;
+            return {
+                ...r,
+                students: studentData,
+                professors: r.professors ? {
+                    ...r.professors,
+                    name: `${r.professors.app_users?.first_name || ''} ${r.professors.app_users?.last_name || ''}`.trim()
+                } : null,
+                institutions: r.institutions || null,
+                location_polygon: r.location_polygon || null
+            };
+        });
+
+        const releaseIds = releases.map((r: any) => r.id);
+        const { data: sitesData } = await this.supabase
+            .from('test_release_sites')
+            .select('*')
+            .in('test_release_id', releaseIds);
+        const sitesByReleaseId = (sitesData || []).reduce<Record<string, any[]>>((acc, s) => {
+            const rid = s.test_release_id;
+            if (!acc[rid]) acc[rid] = [];
+            acc[rid].push(s);
+            return acc;
+        }, {});
+
+        return releases.map((r: any) => ({
+            ...r,
+            allowed_sites: sitesByReleaseId[r.id] || []
+        })) as any;
     }
 
     async createRelease(release: Partial<TestRelease>, sites?: Partial<TestReleaseSite>[]): Promise<void> {

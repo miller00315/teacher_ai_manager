@@ -110,7 +110,7 @@ export interface ITestReleaseRepository {
     getReleasesByInstitution(institutionId: string, includeDeleted?: boolean): Promise<TestRelease[]>;
     getReleasesByClass(classId: string): Promise<TestRelease[]>;
     getReleasesByStudent(studentId: string): Promise<TestRelease[]>;
-    getReleasesByProfessor(professorId: string, includeDeleted?: boolean): Promise<TestRelease[]>;
+    getReleasesByProfessor(professorId: string, includeDeleted?: boolean, testId?: string): Promise<TestRelease[]>;
     createRelease(release: Partial<TestRelease>, sites?: Partial<TestReleaseSite>[]): Promise<void>;
     createBulkReleases(baseRelease: Partial<TestRelease>, studentIds: string[], sites?: Partial<TestReleaseSite>[]): Promise<void>;
     deleteRelease(id: string): Promise<void>;

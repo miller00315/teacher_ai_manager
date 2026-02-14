@@ -142,17 +142,10 @@ export const useProfessorReleases = (hasSupabase: boolean) => {
     setLoading(true);
     setError(null);
     try {
-      const fetchedReleases = await releaseUC.getReleasesByProfessor(professorId, false);
-      
-      // Filtrar apenas as liberações da prova selecionada
-      const filtered = fetchedReleases.filter(r => r.test_id === testId);
-      
-      // Ordenar por data mais recente primeiro
-      filtered.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-      
-      setAllReleases(filtered);
-      // Inicialmente, mostrar todas (a paginação será feita no componente)
-      setReleases(filtered);
+      const fetchedReleases = await releaseUC.getReleasesByProfessor(professorId, false, testId);
+      const sorted = [...fetchedReleases].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+      setAllReleases(sorted);
+      setReleases(sorted);
     } catch (err: any) {
       console.error('Error fetching releases:', err);
       console.error('Error details:', {

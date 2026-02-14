@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite --port 3003",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "npx vite --port 3003",
+    "build": "npx vite build",
+    "preview": "npx vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
