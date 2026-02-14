@@ -70,7 +70,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
                  end: r.end_time,
                  count: 0,
                  id: r.id, 
-                 professorName: r.professors?.name || t('classDetails.unknown')
+                 professorName: r.professors?.name || t('teacher.classDetails.unknown')
              };
         }
         groups[key].count++;
@@ -113,9 +113,9 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
       const now = new Date();
       const s = new Date(start);
       const e = new Date(end);
-      if (now < s) return { label: t('classDetails.scheduled'), color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' };
-      if (now > e) return { label: t('classDetails.closed'), color: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' };
-      return { label: t('classDetails.active'), color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' };
+      if (now < s) return { label: t('teacher.classDetails.scheduled'), color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' };
+      if (now > e) return { label: t('teacher.classDetails.closed'), color: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' };
+      return { label: t('teacher.classDetails.active'), color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' };
   };
 
   const handleAssignProf = async () => {
@@ -168,7 +168,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
       if (d.professors.app_users) {
           return `${d.professors.app_users.first_name} ${d.professors.app_users.last_name}`;
       }
-      return t('classDetails.unknown');
+      return t('teacher.classDetails.unknown');
   };
 
   // Filter out professors already assigned
@@ -179,16 +179,16 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
   }, [availableProfessors, classData?.professors]);
 
   if (loading && !classData) {
-      return <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500"><Loader2 className="animate-spin mb-4" size={40}/><p>{t('classDetails.loading')}</p></div>;
+      return <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500"><Loader2 className="animate-spin mb-4" size={40}/><p>{t('teacher.classDetails.loading')}</p></div>;
   }
 
   if (error) {
       return (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-8 text-center">
             <AlertTriangle className="mx-auto text-red-500 dark:text-red-400 mb-4" size={48} />
-            <h3 className="text-lg font-bold text-red-700 dark:text-red-300 mb-2">{t('classDetails.errorLoading')}</h3>
+            <h3 className="text-lg font-bold text-red-700 dark:text-red-300 mb-2">{t('teacher.classDetails.errorLoading')}</h3>
             <p className="text-red-600 dark:text-red-300 mb-6">{error}</p>
-            <button onClick={onBack} className="text-slate-600 dark:text-slate-400 underline">{t('classDetails.goBack')}</button>
+            <button onClick={onBack} className="text-slate-600 dark:text-slate-400 underline">{t('teacher.classDetails.goBack')}</button>
         </div>
       );
   }
@@ -212,7 +212,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
                         onClick={() => classData.grade_id && onViewGrade?.(classData.grade_id)}
                         className={`flex items-center gap-1 ${onViewGrade && classData.grade_id ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors' : ''}`}
                       >
-                        <BookOpen size={14}/> {classData.school_grades?.name || t('classDetails.unknownGrade')}
+                        <BookOpen size={14}/> {classData.school_grades?.name || t('teacher.classDetails.unknownGrade')}
                       </span>
                   </div>
               </div>
@@ -221,7 +221,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
             onClick={() => setIsReleaseModalOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
           >
-              <Send size={20}/> {t('classDetails.applyTest')}
+              <Send size={20}/> {t('teacher.classDetails.applyTest')}
           </button>
       </div>
 
@@ -230,22 +230,22 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
           <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center">
               <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-2"><Users size={20}/></div>
               <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{students.length}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('classDetails.studentsEnrolled')}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('teacher.classDetails.studentsEnrolled')}</div>
           </div>
           <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center">
               <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mb-2"><TrendingUp size={20}/></div>
               <div className={`text-2xl font-bold ${stats.avgScore >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>{stats.avgScore}%</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('classDetails.classAverage')}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('teacher.classDetails.classAverage')}</div>
           </div>
           <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center">
               <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mb-2"><FileText size={20}/></div>
               <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.testsTaken}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('classDetails.totalTestsGraded')}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('teacher.classDetails.totalTestsGraded')}</div>
           </div>
           <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center">
               <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full flex items-center justify-center mb-2"><GraduationCap size={20}/></div>
               <div className="text-lg font-bold text-slate-800 dark:text-slate-100 truncate w-full px-2">{stats.topStudent}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('classDetails.topPerformer')}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{t('teacher.classDetails.topPerformer')}</div>
           </div>
       </div>
 
@@ -256,20 +256,20 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
               {/* Scheduled Tests Section */}
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
                   <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Calendar size={18}/> {t('classDetails.scheduledActiveTests')}</h3>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Calendar size={18}/> {t('teacher.classDetails.scheduledActiveTests')}</h3>
                       <span className="text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded text-slate-500 dark:text-slate-400">{groupedReleases.length}</span>
                   </div>
                   <div className="overflow-x-auto">
                     {groupedReleases.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 dark:text-slate-500">{t('classDetails.noTestsAssigned')}</div>
+                        <div className="p-8 text-center text-slate-400 dark:text-slate-500">{t('teacher.classDetails.noTestsAssigned')}</div>
                     ) : (
                         <table className="w-full text-left">
                             <thead className="bg-white dark:bg-slate-900 text-xs uppercase text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-6 py-3">{t('classDetails.testTitle')}</th>
-                                    <th className="px-6 py-3">{t('classDetails.assignedBy')}</th>
-                                    <th className="px-6 py-3">{t('classDetails.timeline')}</th>
-                                    <th className="px-6 py-3">{t('classDetails.status')}</th>
+                                    <th className="px-6 py-3">{t('teacher.classDetails.testTitle')}</th>
+                                    <th className="px-6 py-3">{t('teacher.classDetails.assignedBy')}</th>
+                                    <th className="px-6 py-3">{t('teacher.classDetails.timeline')}</th>
+                                    <th className="px-6 py-3">{t('teacher.classDetails.status')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -282,7 +282,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
                                           className={`hover:bg-slate-50 dark:hover:bg-slate-700 ${onViewTest && g.test?.id ? 'cursor-pointer group' : ''}`}
                                         >
                                             <td className="px-6 py-4">
-                                                <div className={`font-bold text-slate-800 dark:text-slate-100 ${onViewTest ? 'group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors' : ''}`}>{g.test?.title || t('classDetails.unknownTest')}</div>
+                                                <div className={`font-bold text-slate-800 dark:text-slate-100 ${onViewTest ? 'group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors' : ''}`}>{g.test?.title || t('teacher.classDetails.unknownTest')}</div>
                                                 <div className="text-xs text-slate-500 dark:text-slate-400">{g.test?.school_grades?.name}</div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{g.professorName}</td>
@@ -309,11 +309,11 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
               {/* Student Roster */}
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col h-[500px]">
                   <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Users size={18}/> {t('classDetails.studentRoster')} ({students.length})</h3>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Users size={18}/> {t('teacher.classDetails.studentRoster')} ({students.length})</h3>
                   </div>
                   <div className="flex-1 overflow-y-auto">
                       {students.length === 0 ? (
-                          <div className="p-8 text-center text-slate-400 dark:text-slate-500">{t('classDetails.noStudentsAssigned')}</div>
+                          <div className="p-8 text-center text-slate-400 dark:text-slate-500">{t('teacher.classDetails.noStudentsAssigned')}</div>
                       ) : (
                           <table className="w-full text-left">
                               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -325,7 +325,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
                                       >
                                           <td className="p-4">
                                               <div className={`font-bold text-slate-800 dark:text-slate-100 ${onViewStudent ? 'group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors' : ''}`}>{s.name}</div>
-                                              <div className="text-xs text-slate-500 dark:text-slate-400">{s.age} {t('classDetails.yearsOld')}</div>
+                                              <div className="text-xs text-slate-500 dark:text-slate-400">{s.age} {t('teacher.classDetails.yearsOld')}</div>
                                           </td>
                                           <td className="p-4 text-right">
                                               <div className="text-xs font-mono bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-1 rounded inline-block">{(s.student_hash || '').substring(0, 10)}...</div>
@@ -344,27 +344,27 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
               {/* Faculty Section */}
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase size={18}/> {t('classDetails.faculty')}</h3>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase size={18}/> {t('teacher.classDetails.faculty')}</h3>
                       {!showProfSelector && (
                           <button onClick={() => setShowProfSelector(true)} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center gap-1 transition-colors">
-                              <Plus size={12}/> {t('classDetails.assign')}
+                              <Plus size={12}/> {t('teacher.classDetails.assign')}
                           </button>
                       )}
                   </div>
                   
                   {showProfSelector && (
                       <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800">
-                          <div className="text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1">{t('classDetails.addProfessor')}</div>
+                          <div className="text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1">{t('teacher.classDetails.addProfessor')}</div>
                           <div className="flex gap-2">
                               <select 
                                   value={selectedProfId} 
                                   onChange={e => setSelectedProfId(e.target.value)} 
                                   className="flex-1 text-sm border border-indigo-200 dark:border-indigo-700 rounded px-2 py-1 outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                               >
-                                  <option value="">{t('classDetails.select')}</option>
+                                  <option value="">{t('teacher.classDetails.select')}</option>
                                   {assignableProfessors.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
-                              <button onClick={handleAssignProf} className="bg-indigo-600 dark:bg-indigo-500 text-white px-3 py-1 rounded text-xs font-bold">{t('classDetails.add')}</button>
+                              <button onClick={handleAssignProf} className="bg-indigo-600 dark:bg-indigo-500 text-white px-3 py-1 rounded text-xs font-bold">{t('teacher.classDetails.add')}</button>
                               <button onClick={() => setShowProfSelector(false)} className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"><CheckCircle size={16}/></button>
                           </div>
                       </div>
@@ -372,7 +372,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
 
                   <div className="max-h-[300px] overflow-y-auto">
                       {!classData.professors || classData.professors.length === 0 ? (
-                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">{t('classDetails.noFacultyAssigned')}</div>
+                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">{t('teacher.classDetails.noFacultyAssigned')}</div>
                       ) : (
                           <div className="divide-y divide-slate-100 dark:divide-slate-700">
                               {classData.professors.map(p => (
@@ -403,11 +403,11 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
               {/* Disciplines Section (New) */}
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><BookOpen size={18}/> {t('classDetails.gradeCurriculum')}</h3>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><BookOpen size={18}/> {t('teacher.classDetails.gradeCurriculum')}</h3>
                   </div>
                   <div className="max-h-[300px] overflow-y-auto p-2">
                       {!classData.school_grades?.disciplines || classData.school_grades.disciplines.length === 0 ? (
-                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">{t('classDetails.noCurriculumDefined')}</div>
+                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">{t('teacher.classDetails.noCurriculumDefined')}</div>
                       ) : (
                           <div className="space-y-1">
                               {classData.school_grades.disciplines.map(d => {
@@ -421,7 +421,7 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
                                                     <User size={10}/> {profName}
                                                 </span>
                                             ) : (
-                                                <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">{t('classDetails.noTeacherAssigned')}</span>
+                                                <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">{t('teacher.classDetails.noTeacherAssigned')}</span>
                                             )}
                                         </div>
                                     </div>
@@ -565,17 +565,17 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
               {/* Recent Activity */}
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col h-[400px]">
                   <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><FileText size={18}/> {t('classDetails.recentPerformance')}</h3>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><FileText size={18}/> {t('teacher.classDetails.recentPerformance')}</h3>
                   </div>
                   <div className="flex-1 overflow-y-auto">
                       {testResults.length === 0 ? (
-                          <div className="p-8 text-center text-slate-400 dark:text-slate-500">{t('classDetails.noGradedTests')}</div>
+                          <div className="p-8 text-center text-slate-400 dark:text-slate-500">{t('teacher.classDetails.noGradedTests')}</div>
                       ) : (
                           <table className="w-full text-left">
                               <thead className="bg-slate-50 dark:bg-slate-900 text-xs uppercase text-slate-500 dark:text-slate-400 font-semibold">
                                   <tr>
-                                      <th className="px-4 py-2">{t('classDetails.student')}</th>
-                                      <th className="px-4 py-2 text-right">{t('classDetails.score')}</th>
+                                      <th className="px-4 py-2">{t('teacher.classDetails.student')}</th>
+                                      <th className="px-4 py-2 text-right">{t('teacher.classDetails.score')}</th>
                                   </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
