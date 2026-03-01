@@ -101,6 +101,22 @@ const TeacherStudentViewer: React.FC<ViewerProps> = ({ hasSupabase }) => {
       await loadStudentHistory(student.id);
   };
 
+  // Agrupar alunos por turma (class_id); sem turma = "Sem turma"
+  const studentsByClass = useMemo(() => {
+    const map = new Map<string, { className: string; students: Student[] }>();
+    const noClassKey = '__no_class__';
+    for (const s of students) {
+      const classId = s.class_id ?? s.classes?.id ?? noClassKey;
+      const className = s.classes?.name || 'Sem turma';
+      if (!map.has(classId)) map.set(classId, { className, students: [] });
+      map.get(classId)!.students.push(s);
+    }
+    // Ordenar: "Sem turma" por último; demais por nome da turma
+    return Array.from(map.entries())
+      .map(([id, g]) => ({ classId: id, className: g.className, students: g.students }))
+      .sort((a, b) => (a.classId === '__no_class__' ? 1 : b.classId === '__no_class__' ? -1 : a.className.localeCompare(b.className)));
+  }, [students]);
+
   // Simplified Detail View
   if (view === 'detail' && selectedStudent) {
       // Filter results to only show those belonging to this professor
@@ -229,51 +245,68 @@ const TeacherStudentViewer: React.FC<ViewerProps> = ({ hasSupabase }) => {
                     <th className="p-4 text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-right">{t('teacher.studentViewer.actions')}</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {loading ? (
+            {loading ? (
+                <tbody>
                     <tr><td colSpan={4} className="p-12 text-center text-slate-400 dark:text-slate-500"><Loader2 className="animate-spin inline mr-2"/> {t('teacher.studentViewer.loadingData')}</td></tr>
-                ) : students.length === 0 ? (
+                </tbody>
+            ) : students.length === 0 ? (
+                <tbody>
                     <tr><td colSpan={4} className="p-12 text-center text-slate-400 dark:text-slate-500">{t('teacher.studentViewer.noStudentsFound')}</td></tr>
-                ) : students.map(s => (
-                    <tr key={s.id} onClick={() => handleViewDetails(s)} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer group">
-                        <td className="p-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 overflow-hidden">
-                                    {s.app_users?.profile_picture_url ? <img src={s.app_users.profile_picture_url} className="w-full h-full object-cover"/> : <User size={16}/>}
-                                </div>
-                                <div>
-                                    <p className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{s.name}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{s.app_users?.email}</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td className="p-4">
-                            <div className="space-y-1">
-                                <span className="inline-flex gap-1 items-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs font-bold uppercase"><GraduationCap size={10}/> {s.school_grades?.name || t('teacher.studentViewer.unassigned')}</span>
-                                {s.institutions && (
-                                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                                        <Building2 size={12}/> {s.institutions.name}
+                </tbody>
+            ) : (
+                studentsByClass.map(({ classId, className, students: groupStudents }) => (
+                    <tbody key={classId} className="divide-y divide-slate-100 dark:divide-slate-700">
+                        <tr className="bg-slate-100 dark:bg-slate-800/80 border-y border-slate-200 dark:border-slate-600">
+                            <td colSpan={4} className="p-3 pl-4">
+                                <span className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    <Users size={18} className="text-indigo-600 dark:text-indigo-400"/>
+                                    {className}
+                                    <span className="text-slate-500 dark:text-slate-400 font-normal">({groupStudents.length} {groupStudents.length === 1 ? t('teacher.studentViewer.student').toLowerCase() : t('nav.students').toLowerCase()})</span>
+                                </span>
+                            </td>
+                        </tr>
+                        {groupStudents.map(s => (
+                            <tr key={s.id} onClick={() => handleViewDetails(s)} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer group">
+                                <td className="p-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 overflow-hidden">
+                                            {s.app_users?.profile_picture_url ? <img src={s.app_users.profile_picture_url} className="w-full h-full object-cover"/> : <User size={16}/>}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{s.name}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">{s.app_users?.email}</p>
+                                        </div>
                                     </div>
-                                )}
-                                {s.classes && (
-                                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                                        <Users size={12}/> {s.classes.name}
+                                </td>
+                                <td className="p-4">
+                                    <div className="space-y-1">
+                                        <span className="inline-flex gap-1 items-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs font-bold uppercase"><GraduationCap size={10}/> {s.school_grades?.name || t('teacher.studentViewer.unassigned')}</span>
+                                        {s.institutions && (
+                                            <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                                <Building2 size={12}/> {s.institutions.name}
+                                            </div>
+                                        )}
+                                        {s.classes && (
+                                            <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                                <Users size={12}/> {s.classes.name}
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        </td>
-                        <td className="p-4">
-                            <div className="flex items-center gap-2 font-mono text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded w-fit border border-slate-200 dark:border-slate-600">
-                                <Hash size={12} className="text-slate-400 dark:text-slate-500"/>
-                                {(s.student_hash || '').substring(0, 16)}...
-                            </div>
-                        </td>
-                        <td className="p-4 text-right">
-                            <button onClick={(e) => { e.stopPropagation(); handleViewDetails(s); }} className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-all" title={t('teacher.studentViewer.viewProfile')}><Eye size={18}/></button>
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
+                                </td>
+                                <td className="p-4">
+                                    <div className="flex items-center gap-2 font-mono text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded w-fit border border-slate-200 dark:border-slate-600">
+                                        <Hash size={12} className="text-slate-400 dark:text-slate-500"/>
+                                        {(s.student_hash || '').substring(0, 16)}...
+                                    </div>
+                                </td>
+                                <td className="p-4 text-right">
+                                    <button onClick={(e) => { e.stopPropagation(); handleViewDetails(s); }} className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-all" title={t('teacher.studentViewer.viewProfile')}><Eye size={18}/></button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                ))
+            )}
             </table>
         </div>
     </div>

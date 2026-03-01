@@ -98,7 +98,7 @@ const App: React.FC = () => {
     const [session, setSession] = useState<Session | null>(null);
     const [userRole, setUserRole] = useState<UserRole>('Student');
     const [authLoading, setAuthLoading] = useState(true);
-    const [isConnected, setIsConnected] = useState(false);
+    const [isConnected, setIsConnected] = useState(() => !!getSupabaseClient());
     const [loadingMessage, setLoadingMessage] = useState("Inicializando Sistema...");
     const [roleCheckAttempted, setRoleCheckAttempted] = useState(false);
     const loginProcessingRef = useRef(false);

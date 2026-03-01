@@ -1069,11 +1069,18 @@ export class ClassRepositoryImpl implements IClassRepository {
             department: cp.professors.departments?.code
         }));
 
-        // Filter deleted disciplines from nested school_grades
-        const schoolGrades = data.school_grades ? {
-            ...data.school_grades,
-            disciplines: (data.school_grades.disciplines || []).filter((d: any) => !d.deleted)
-        } : data.school_grades;
+        // Filter deleted disciplines and normalize professor name (Supabase pode retornar app_users como objeto ou array)
+        const rawDisciplines = (data.school_grades?.disciplines || []).filter((d: any) => !d.deleted);
+        const disciplines = rawDisciplines.map((d: any) => {
+            const p = d.professors;
+            if (!p) return { ...d, professors: null };
+            const prof = Array.isArray(p) ? p[0] : p;
+            const au = prof?.app_users;
+            const appUser = au ? (Array.isArray(au) ? au[0] : au) : null;
+            const name = appUser ? `${appUser.first_name ?? ''} ${appUser.last_name ?? ''}`.trim() : (prof.name || null);
+            return { ...d, professors: name ? { ...prof, name } : prof };
+        });
+        const schoolGrades = data.school_grades ? { ...data.school_grades, disciplines } : data.school_grades;
 
         return { ...data, school_grades: schoolGrades, professors } as SchoolClass;
     }

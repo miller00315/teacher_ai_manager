@@ -36,65 +36,73 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigate }) => {
                     .from('app_users')
                     .select('id, first_name')
                     .eq('auth_id', user.id)
-                    .single();
+                    .maybeSingle();
 
-                if (appUser) {
-                    setProfessorName(appUser.first_name || 'Professor');
+                if (!appUser) return;
 
-                    const { data: prof } = await supabase
-                        .from('professors')
-                        .select('id')
-                        .eq('user_id', appUser.id)
-                        .single();
+                setProfessorName(appUser.first_name || 'Professor');
 
-                    if (prof) {
-                        // Count classes
-                        const { count: classCount } = await supabase
-                            .from('class_professors')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('professor_id', prof.id);
+                const { data: prof } = await supabase
+                    .from('professors')
+                    .select('id')
+                    .eq('user_id', appUser.id)
+                    .maybeSingle();
 
-                        // Count tests
-                        const { count: testCount } = await supabase
-                            .from('tests')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('professor_id', prof.id)
-                            .eq('deleted', false);
-
-                        // Count pending releases (active)
-                        const { count: pendingCount } = await supabase
-                            .from('test_releases')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('professor_id', prof.id)
-                            .gte('end_time', new Date().toISOString());
-
-                        // Count students from assigned classes
-                        const { data: classIds } = await supabase
-                            .from('class_professors')
-                            .select('class_id')
-                            .eq('professor_id', prof.id);
-
-                        let studentCount = 0;
-                        if (classIds && classIds.length > 0) {
-                            const classIdArray = classIds.map(c => c.class_id).filter(Boolean);
-                            if (classIdArray.length > 0) {
-                                const { count } = await supabase
-                                    .from('students')
-                                    .select('*', { count: 'exact', head: true })
-                                    .in('class_id', classIdArray)
-                                    .eq('deleted', false);
-                                studentCount = count || 0;
-                            }
-                        }
-
-                        setStats({
-                            classes: classCount || 0,
-                            students: studentCount,
-                            tests: testCount || 0,
-                            pendingResults: pendingCount || 0
-                        });
-                    }
+                if (!prof) {
+                    setLoading(false);
+                    return;
                 }
+
+                const now = new Date().toISOString();
+
+                // Turmas: distinct classes (não deletadas) em que o professor está atribuído
+                const { data: classAssignments } = await supabase
+                    .from('class_professors')
+                    .select('class_id')
+                    .eq('professor_id', prof.id);
+                const assignedClassIds = [...new Set((classAssignments || []).map((c: { class_id: string }) => c.class_id).filter(Boolean))];
+                let classCount = 0;
+                if (assignedClassIds.length > 0) {
+                    const { count } = await supabase
+                        .from('classes')
+                        .select('id', { count: 'exact', head: true })
+                        .in('id', assignedClassIds)
+                        .or('deleted.is.null,deleted.eq.false');
+                    classCount = count ?? 0;
+                }
+
+                // Alunos: alunos não deletados nas turmas atribuídas ao professor
+                let studentCount = 0;
+                if (assignedClassIds.length > 0) {
+                    const { count } = await supabase
+                        .from('students')
+                        .select('id', { count: 'exact', head: true })
+                        .in('class_id', assignedClassIds)
+                        .or('deleted.is.null,deleted.eq.false');
+                    studentCount = count ?? 0;
+                }
+
+                // Provas: do professor, não deletadas
+                const { count: testCount } = await supabase
+                    .from('tests')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('professor_id', prof.id)
+                    .or('deleted.is.null,deleted.eq.false');
+
+                // Ativas: liberações do professor que ainda não encerraram (não deletadas)
+                const { count: pendingCount } = await supabase
+                    .from('test_releases')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('professor_id', prof.id)
+                    .gte('end_time', now)
+                    .or('deleted.is.null,deleted.eq.false');
+
+                setStats({
+                    classes: classCount,
+                    students: studentCount,
+                    tests: testCount ?? 0,
+                    pendingResults: pendingCount ?? 0
+                });
             } catch (e) {
                 console.error('Error fetching teacher stats:', e);
             } finally {

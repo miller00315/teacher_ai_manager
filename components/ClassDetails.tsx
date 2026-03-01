@@ -159,16 +159,19 @@ const ClassDetails: React.FC<ClassDetailsProps> = ({ classId, onBack, hasSupabas
       }
   };
 
-  // Helper to extract professor name from nested discipline object
+  // Helper to extract professor name from nested discipline object (Supabase pode retornar professors/app_users como objeto ou array)
   const getDisciplineProfName = (d: any) => {
-      if (!d.professors) return null;
-      // If flattened
-      if (d.professors.name) return d.professors.name;
-      // If raw from Supabase join
-      if (d.professors.app_users) {
-          return `${d.professors.app_users.first_name} ${d.professors.app_users.last_name}`;
-      }
-      return t('teacher.classDetails.unknown');
+      const prof = d?.professors;
+      if (!prof) return null;
+      const p = Array.isArray(prof) ? prof[0] : prof;
+      if (!p) return null;
+      if (p.name && typeof p.name === 'string') return p.name.trim() || null;
+      const appUsers = p.app_users;
+      if (!appUsers) return null;
+      const au = Array.isArray(appUsers) ? appUsers[0] : appUsers;
+      if (!au) return null;
+      const name = `${au.first_name ?? ''} ${au.last_name ?? ''}`.trim();
+      return name || null;
   };
 
   // Filter out professors already assigned
