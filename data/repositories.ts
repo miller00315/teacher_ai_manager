@@ -32,9 +32,10 @@ export class QuestionRepositoryImpl implements IQuestionRepository {
         let query = this.supabase
             .from('questions')
             .select(`
-                *, 
+                *,
                 question_options(*),
-                school_grades(name)
+                school_grades(name),
+                bncc(id, codigo_alfanumerico, descricao_habilidade, ano_serie, componente_curricular, unidade_tematica)
             `);
 
         if (!includeDeleted) {
@@ -59,10 +60,20 @@ export class QuestionRepositoryImpl implements IQuestionRepository {
             imageUrl = data.publicUrl;
         }
 
+        const questionRow: Record<string, unknown> = {
+            content: question.content,
+            difficulty: question.difficulty,
+            grade_id: question.grade_id || null,
+            subject: question.subject,
+            professor_id: (question as any).professor_id || null,
+            image_url: imageUrl ?? question.image_url ?? null,
+            bncc_id: question.bncc_id?.trim() || null
+        };
+
         if (qId) {
-            await this.supabase.from('questions').update({ ...question, image_url: imageUrl }).eq('id', qId);
+            await this.supabase.from('questions').update(questionRow).eq('id', qId);
         } else {
-            const { data, error } = await this.supabase.from('questions').insert({ ...question, image_url: imageUrl }).select().single();
+            const { data, error } = await this.supabase.from('questions').insert(questionRow).select().single();
             if (error) throw error;
             qId = data.id;
         }

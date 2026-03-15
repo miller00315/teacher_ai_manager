@@ -2,11 +2,12 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useQuestionManager } from '../presentation/hooks/useQuestionManager';
 import { useSettingsManager } from '../presentation/hooks/useSettingsManager';
+import { useBNCCManager } from '../presentation/hooks/useBNCCManager';
 import { Question, AIQuestionParams, Difficulty } from '../types';
 import { parseFile } from '../services/fileParser';
 import { 
   Sparkles, Plus, Trash2, Check, AlertTriangle, Loader2, FileQuestion, X, Save,
-  BookOpen, Filter, Pencil, Upload, FileText, CheckCircle, RotateCcw, Image as ImageIcon, ChevronLeft, ChevronRight
+  BookOpen, Filter, Pencil, Upload, FileText, CheckCircle, RotateCcw, Image as ImageIcon, ChevronLeft, ChevronRight, ScrollText
 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -20,6 +21,7 @@ interface ManualQuestionState {
   difficulty: Difficulty;
   grade_id: string;
   subject: string;
+  bncc_id: string;
 }
 
 const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
@@ -27,11 +29,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
     questions, loading, error, isGenerating, generateAI, saveManual, deleteQuestion, restoreQuestion, refresh, isAdmin, showDeleted, setShowDeleted
   } = useQuestionManager(hasSupabase);
   const { grades } = useSettingsManager(hasSupabase);
+  const { items: bnccItems } = useBNCCManager(hasSupabase);
   
   const [showAiModal, setShowAiModal] = useState(false);
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'All'>('All');
   const [gradeFilter, setGradeFilter] = useState<string>('All');
   const [subjectFilter, setSubjectFilter] = useState<string>('All');
+  const [bnccFilter, setBnccFilter] = useState<string>('All');
   const [showManualModal, setShowManualModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -65,8 +69,35 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
     ],
     difficulty: 'Medium',
     grade_id: '',
-    subject: ''
+    subject: '',
+    bncc_id: ''
   });
+
+  const activeBnccItems = useMemo(() => bnccItems.filter(b => !b.deleted), [bnccItems]);
+
+  const getBnccForQuestion = (q: Question) => {
+    if (q.bncc) return q.bncc;
+    if (q.bncc_id) return activeBnccItems.find(b => b.id === q.bncc_id) ?? null;
+    return null;
+  };
+
+  const showBnccDetails = (q: Question) => {
+    const bncc = getBnccForQuestion(q);
+    if (!bncc) {
+      if (q.bncc_id) alert('BNCC vinculada (ID: ' + q.bncc_id + '). Detalhes não disponíveis.');
+      return;
+    }
+    const parts = [
+      'Detalhes da BNCC',
+      '────────────────────────────',
+      'Código: ' + (bncc.codigo_alfanumerico || '—'),
+      bncc.ano_serie ? 'Ano/Série: ' + bncc.ano_serie : '',
+      bncc.componente_curricular ? 'Componente curricular: ' + bncc.componente_curricular : '',
+      bncc.unidade_tematica ? 'Unidade temática: ' + bncc.unidade_tematica : '',
+      bncc.descricao_habilidade ? '\nDescrição da habilidade:\n' + bncc.descricao_habilidade : ''
+    ].filter(Boolean);
+    alert(parts.join('\n'));
+  };
   
   const [aiMode, setAiMode] = useState<'topic' | 'document'>('topic');
   const [aiParams, setAiParams] = useState<AIQuestionParams>({
@@ -88,9 +119,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
       if (difficultyFilter !== 'All' && q.difficulty !== difficultyFilter) return false;
       if (gradeFilter !== 'All' && q.grade_id !== gradeFilter) return false;
       if (subjectFilter !== 'All' && q.subject !== subjectFilter) return false;
+      if (bnccFilter === '__none__' && q.bncc_id) return false;
+      if (bnccFilter !== 'All' && bnccFilter !== '__none__' && q.bncc_id !== bnccFilter) return false;
       return true;
     });
-  }, [questions, difficultyFilter, gradeFilter, subjectFilter]);
+  }, [questions, difficultyFilter, gradeFilter, subjectFilter, bnccFilter]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredQuestions.length / itemsPerPage);
@@ -103,7 +136,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
   // Reset page when filters change
   useEffect(() => {
       setCurrentPage(1);
-  }, [difficultyFilter, gradeFilter, subjectFilter]);
+  }, [difficultyFilter, gradeFilter, subjectFilter, bnccFilter]);
 
   const processFileForAI = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) return alert("File max 5MB");
@@ -153,7 +186,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
                 content: manualQuestion.content,
                 difficulty: manualQuestion.difficulty,
                 grade_id: manualQuestion.grade_id,
-                subject: manualQuestion.subject
+                subject: manualQuestion.subject,
+                bncc_id: manualQuestion.bncc_id?.trim() || null
             },
             optionsWithKeys,
             imageFile || undefined
@@ -174,6 +208,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
       subject: q.subject,
       grade_id: q.grade_id,
       difficulty: q.difficulty,
+      bncc_id: q.bncc_id || '',
       options: q.question_options?.map((opt, i) => ({ 
           content: opt.content, 
           is_correct: opt.is_correct,
@@ -197,7 +232,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
       })),
       difficulty: 'Medium',
       grade_id: '',
-      subject: ''
+      subject: '',
+      bncc_id: ''
     });
     setImageFile(null);
     setImagePreview(null);
@@ -310,7 +346,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
       <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mr-2 font-medium"><Filter size={20} /><span>Filtros:</span></div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full md:w-auto flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full md:w-auto flex-1">
               <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer shadow-sm">
                   <option value="All">Todas as Matérias</option>
                   {uniqueSubjects.map(s => <option key={s} value={s}>{s}</option>)}
@@ -322,6 +358,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
               <select value={difficultyFilter} onChange={(e) => setDifficultyFilter(e.target.value as any)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer shadow-sm">
                   <option value="All">Todas as Dificuldades</option>
                   {['Easy', 'Medium', 'Hard'].map(d => <option key={d} value={d}>{d === 'Easy' ? 'Fácil' : d === 'Medium' ? 'Médio' : 'Difícil'}</option>)}
+              </select>
+              <select value={bnccFilter} onChange={(e) => setBnccFilter(e.target.value)} className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer shadow-sm">
+                  <option value="All">Todas as BNCC</option>
+                  <option value="__none__">Sem BNCC</option>
+                  {activeBnccItems.map(b => (
+                    <option key={b.id} value={b.id}>{b.codigo_alfanumerico}{b.descricao_habilidade ? ` – ${b.descricao_habilidade.slice(0, 40)}${b.descricao_habilidade.length > 40 ? '…' : ''}` : ''}</option>
+                  ))}
               </select>
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -410,6 +453,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
                       >
                           <option value="">Selecionar Série</option>
                           {grades.map(g => <option key={g.id} value={g.id}>{getGradeLabel(g)}</option>)}
+                      </select>
+                  </div>
+                  <div className="md:col-span-3">
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2"><ScrollText size={16} /> BNCC (habilidade)</label>
+                      <select 
+                        value={manualQuestion.bncc_id} 
+                        onChange={e => setManualQuestion({...manualQuestion, bncc_id: e.target.value})} 
+                        className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-700 shadow-sm"
+                      >
+                          <option value="">Nenhum / Opcional</option>
+                          {activeBnccItems.map(b => (
+                              <option key={b.id} value={b.id}>{b.codigo_alfanumerico} – {b.descricao_habilidade?.slice(0, 60) || b.componente_curricular || b.id}{b.descricao_habilidade && b.descricao_habilidade.length > 60 ? '…' : ''}</option>
+                          ))}
                       </select>
                   </div>
                </div>
@@ -592,11 +648,21 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
             ) : paginatedQuestions.map(q => (
                 <div key={q.id} className={`bg-white dark:bg-slate-800 p-6 rounded-xl border shadow-sm hover:shadow-md transition-all group ${q.deleted ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-600'}`}>
                 <div className="flex justify-between items-start mb-3">
-                    <div className="flex gap-2">
-                        <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wider ${q.difficulty === 'Hard' ? 'bg-red-100 text-red-700' : q.difficulty === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{q.difficulty}</span>
+                    <div className="flex flex-wrap gap-2">
+                        <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wider ${q.difficulty === 'Hard' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : q.difficulty === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'}`}>{q.difficulty === 'Easy' ? 'Fácil' : q.difficulty === 'Medium' ? 'Médio' : 'Difícil'}</span>
                         <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">{q.subject}</span>
-                        <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">{q.school_grades?.name || 'Unassigned'}</span>
-                        {q.deleted && <span className="bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Deleted</span>}
+                        <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">{q.school_grades?.name || '—'}</span>
+                        {(q.bncc || q.bncc_id) && (
+                            <button
+                              type="button"
+                              onClick={() => showBnccDetails(q)}
+                              className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-2 py-1 rounded tracking-wider hover:bg-purple-200 dark:hover:bg-purple-800/50 cursor-pointer transition-colors text-left"
+                              title="Clique para ver detalhes da BNCC"
+                            >
+                                <ScrollText size={12} /> {getBnccForQuestion(q)?.codigo_alfanumerico || 'BNCC vinculada'}
+                            </button>
+                        )}
+                        {q.deleted && <span className="bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Excluída</span>}
                     </div>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         {!q.deleted && <button onClick={() => openEditModal(q)} className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors" title="Edit"><Pencil size={18}/></button>}
