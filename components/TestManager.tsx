@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTestManager } from '../presentation/hooks/useTestManager';
 import { useSettingsManager } from '../presentation/hooks/useSettingsManager';
 import { useBNCCManager } from '../presentation/hooks/useBNCCManager';
+import { bnccSelectOptionLabel } from '../utils/bnccDisplay';
 import { Test, Question } from '../types';
 import { 
   FileText, Plus, Calendar, User, ChevronRight, ChevronLeft, Loader2, ArrowLeft, Eye, EyeOff,
@@ -461,7 +462,7 @@ const TestManager: React.FC<TestManagerProps> = ({ hasSupabase, institutionId, i
                       <option value="All">Todas as BNCC</option>
                       <option value="__none__">Sem BNCC</option>
                       {activeBnccItems.map(b => (
-                        <option key={b.id} value={b.id}>{b.codigo_alfanumerico}{b.descricao_habilidade ? ` – ${b.descricao_habilidade.slice(0, 35)}${b.descricao_habilidade.length > 35 ? '…' : ''}` : ''}</option>
+                        <option key={b.id} value={b.id}>{bnccSelectOptionLabel(b, 35)}</option>
                       ))}
                   </select>
               </div>

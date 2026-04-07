@@ -25,6 +25,28 @@ export class DependencyError extends Error {
     }
 }
 
+/** Select aninhado alinhado a `public.bncc` e FKs (PostgREST). */
+export const BNCC_RELATIONS_SELECT = `
+  id,
+  codigo_alfanumerico,
+  created_at,
+  deleted,
+  curriculum_component_id,
+  discipline_reference_id,
+  teaching_stage_id,
+  specific_skills_id,
+  curriculum_component(id, name, description),
+  discipline_reference(id, name, description),
+  teaching_stage(id, name, description),
+  specific_skills(
+    id,
+    name,
+    description,
+    hability_id,
+    habilities(id, name, description)
+  )
+`;
+
 export class QuestionRepositoryImpl implements IQuestionRepository {
     constructor(private supabase: SupabaseClient) { }
 
@@ -35,7 +57,7 @@ export class QuestionRepositoryImpl implements IQuestionRepository {
                 *,
                 question_options(*),
                 school_grades(name),
-                bncc(id, codigo_alfanumerico, descricao_habilidade, ano_serie, componente_curricular, unidade_tematica)
+                bncc(${BNCC_RELATIONS_SELECT})
             `);
 
         if (!includeDeleted) {
@@ -1734,7 +1756,7 @@ export class BNCCRepositoryImpl implements IBNCCRepository {
     constructor(private supabase: SupabaseClient) { }
 
     async getAll(includeDeleted = false): Promise<BNCCItem[]> {
-        let query = this.supabase.from('bncc').select('*');
+        let query = this.supabase.from('bncc').select(BNCC_RELATIONS_SELECT);
         if (!includeDeleted) query = query.eq('deleted', false);
         const { data, error } = await query.order('codigo_alfanumerico', { ascending: true });
         if (error) throw error;

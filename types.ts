@@ -288,15 +288,70 @@ export interface LibraryItem {
     deleted?: boolean;
 }
 
+/** Linhas de apoio à BNCC (schema normalizado). */
+export interface CurriculumComponentRow {
+    id: string;
+    name: string;
+    description?: string | null;
+    deleted?: boolean;
+}
+
+export interface DisciplineReferenceRow {
+    id: string;
+    name: string;
+    description?: string | null;
+    deleted?: boolean;
+}
+
+export interface TeachingStageRow {
+    id: string;
+    name: string;
+    description?: string | null;
+    deleted?: boolean;
+}
+
+export interface HabilityRow {
+    id: string;
+    name: string;
+    description?: string | null;
+    deleted?: boolean;
+}
+
+export interface SpecificSkillsRow {
+    id: string;
+    name: string;
+    description?: string | null;
+    hability_id: string;
+    deleted?: boolean;
+    habilities?: HabilityRow | null;
+}
+
+/**
+ * Registro em `public.bncc`, com FKs para componente, referência disciplinar,
+ * etapa de ensino e habilidade específica (e eixo via `specific_skills.habilities`).
+ * Campos legados (`descricao_habilidade`, etc.) permanecem opcionais para dados antigos.
+ */
 export interface BNCCItem {
     id: string;
     codigo_alfanumerico: string;
-    descricao_habilidade?: string;
-    ano_serie?: string;
-    componente_curricular?: string;
-    unidade_tematica?: string;
-    deleted?: boolean;
     created_at?: string;
+    deleted?: boolean;
+    curriculum_component_id?: string | null;
+    discipline_reference_id?: string | null;
+    teaching_stage_id?: string | null;
+    specific_skills_id?: string | null;
+    curriculum_component?: CurriculumComponentRow | null;
+    discipline_reference?: DisciplineReferenceRow | null;
+    teaching_stage?: TeachingStageRow | null;
+    specific_skills?: SpecificSkillsRow | null;
+    /** @deprecated Schema antigo; preferir `specific_skills` + relações */
+    descricao_habilidade?: string;
+    /** @deprecated Schema antigo; preferir `teaching_stage.name` */
+    ano_serie?: string;
+    /** @deprecated Schema antigo; preferir `curriculum_component.name` */
+    componente_curricular?: string;
+    /** @deprecated Não mapeado no schema atual */
+    unidade_tematica?: string;
 }
 
 export interface ClassroomRoom {

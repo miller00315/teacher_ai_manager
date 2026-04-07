@@ -1,9 +1,12 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuestionManager } from '../presentation/hooks/useQuestionManager';
 import { useSettingsManager } from '../presentation/hooks/useSettingsManager';
 import { useBNCCManager } from '../presentation/hooks/useBNCCManager';
-import { Question, AIQuestionParams, Difficulty } from '../types';
+import { useAppTranslation } from '../presentation/hooks/useAppTranslation';
+import { Question, AIQuestionParams, Difficulty, BNCCItem } from '../types';
+import { bnccDetailRows, bnccSelectOptionLabel } from '../utils/bnccDisplay';
 import { parseFile } from '../services/fileParser';
 import { 
   Sparkles, Plus, Trash2, Check, AlertTriangle, Loader2, FileQuestion, X, Save,
@@ -25,6 +28,7 @@ interface ManualQuestionState {
 }
 
 const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
+  const { t } = useAppTranslation();
   const { 
     questions, loading, error, isGenerating, generateAI, saveManual, deleteQuestion, restoreQuestion, refresh, isAdmin, showDeleted, setShowDeleted
   } = useQuestionManager(hasSupabase);
@@ -52,6 +56,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
       contentSample: string;
   }>({ isOpen: false, id: null, action: 'delete', contentSample: '' });
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [bnccModal, setBnccModal] = useState<{ bncc: BNCCItem } | { missingId: string } | null>(null);
 
   // Image Upload State
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -81,23 +86,22 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
     return null;
   };
 
-  const showBnccDetails = (q: Question) => {
+  const openBnccDetails = (q: Question) => {
     const bncc = getBnccForQuestion(q);
-    if (!bncc) {
-      if (q.bncc_id) alert('BNCC vinculada (ID: ' + q.bncc_id + '). Detalhes não disponíveis.');
-      return;
-    }
-    const parts = [
-      'Detalhes da BNCC',
-      '────────────────────────────',
-      'Código: ' + (bncc.codigo_alfanumerico || '—'),
-      bncc.ano_serie ? 'Ano/Série: ' + bncc.ano_serie : '',
-      bncc.componente_curricular ? 'Componente curricular: ' + bncc.componente_curricular : '',
-      bncc.unidade_tematica ? 'Unidade temática: ' + bncc.unidade_tematica : '',
-      bncc.descricao_habilidade ? '\nDescrição da habilidade:\n' + bncc.descricao_habilidade : ''
-    ].filter(Boolean);
-    alert(parts.join('\n'));
+    if (bncc) setBnccModal({ bncc });
+    else if (q.bncc_id) setBnccModal({ missingId: q.bncc_id });
   };
+
+  const selectedBnccForForm = manualQuestion.bncc_id
+    ? activeBnccItems.find(b => b.id === manualQuestion.bncc_id)
+    : undefined;
+
+  const bnccPreviewRows = useMemo(() => {
+    if (!selectedBnccForForm) return [];
+    return bnccDetailRows(selectedBnccForForm).filter(
+      (row) => row.field === 'code' || (row.value.trim() !== '' && row.value !== '—'),
+    );
+  }, [selectedBnccForForm]);
   
   const [aiMode, setAiMode] = useState<'topic' | 'document'>('topic');
   const [aiParams, setAiParams] = useState<AIQuestionParams>({
@@ -363,7 +367,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
                   <option value="All">Todas as BNCC</option>
                   <option value="__none__">Sem BNCC</option>
                   {activeBnccItems.map(b => (
-                    <option key={b.id} value={b.id}>{b.codigo_alfanumerico}{b.descricao_habilidade ? ` – ${b.descricao_habilidade.slice(0, 40)}${b.descricao_habilidade.length > 40 ? '…' : ''}` : ''}</option>
+                    <option key={b.id} value={b.id}>{bnccSelectOptionLabel(b, 40)}</option>
                   ))}
               </select>
           </div>
@@ -456,17 +460,36 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
                       </select>
                   </div>
                   <div className="md:col-span-3">
-                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2"><ScrollText size={16} /> BNCC (habilidade)</label>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2"><ScrollText size={16} /> {t('question.bnccLabel')}</label>
                       <select 
                         value={manualQuestion.bncc_id} 
                         onChange={e => setManualQuestion({...manualQuestion, bncc_id: e.target.value})} 
                         className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-700 shadow-sm"
                       >
-                          <option value="">Nenhum / Opcional</option>
+                          <option value="">{t('question.bnccOptional')}</option>
                           {activeBnccItems.map(b => (
-                              <option key={b.id} value={b.id}>{b.codigo_alfanumerico} – {b.descricao_habilidade?.slice(0, 60) || b.componente_curricular || b.id}{b.descricao_habilidade && b.descricao_habilidade.length > 60 ? '…' : ''}</option>
+                              <option key={b.id} value={b.id}>{bnccSelectOptionLabel(b, 60)}</option>
                           ))}
                       </select>
+                      {selectedBnccForForm && bnccPreviewRows.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-950/30 px-4 py-3 text-slate-700 dark:text-slate-200">
+                          <div className="font-bold text-purple-800 dark:text-purple-200 flex items-center gap-2 text-sm mb-3">
+                            <ScrollText size={16} /> {t('question.bncc.previewTitle')}
+                          </div>
+                          <div className="space-y-3">
+                            {bnccPreviewRows.map((row) => (
+                              <div key={row.field}>
+                                <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                  {t(`question.bncc.fields.${row.field}`)}
+                                </div>
+                                <div className="text-sm text-slate-800 dark:text-slate-200 mt-0.5 whitespace-pre-wrap break-words">
+                                  {row.value}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                   </div>
                </div>
 
@@ -655,11 +678,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
                         {(q.bncc || q.bncc_id) && (
                             <button
                               type="button"
-                              onClick={() => showBnccDetails(q)}
-                              className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-2 py-1 rounded tracking-wider hover:bg-purple-200 dark:hover:bg-purple-800/50 cursor-pointer transition-colors text-left"
-                              title="Clique para ver detalhes da BNCC"
+                              onClick={() => openBnccDetails(q)}
+                              className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-2 py-1 rounded tracking-wider hover:bg-purple-200 dark:hover:bg-purple-800/50 active:bg-purple-300 dark:active:bg-purple-800 cursor-pointer transition-colors text-left min-h-[44px] sm:min-h-0 touch-manipulation"
+                              title={t('question.bncc.tapForDetails')}
+                              aria-label={t('question.bncc.tapForDetails')}
                             >
-                                <ScrollText size={12} /> {getBnccForQuestion(q)?.codigo_alfanumerico || 'BNCC vinculada'}
+                                <ScrollText size={12} /> {getBnccForQuestion(q)?.codigo_alfanumerico || t('question.bncc.linkedShort')}
                             </button>
                         )}
                         {q.deleted && <span className="bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Excluída</span>}
@@ -797,6 +821,73 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
           </div>
         </div>
       )}
+
+      {bnccModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bncc-detail-modal-title"
+            onClick={() => setBnccModal(null)}
+            onKeyDown={(e) => e.key === 'Escape' && setBnccModal(null)}
+          >
+            <div
+              className="w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[88vh] flex flex-col border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-700 shrink-0 gap-2">
+                <h3
+                  id="bncc-detail-modal-title"
+                  className="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2 min-w-0"
+                >
+                  <ScrollText className="text-purple-600 dark:text-purple-400 shrink-0" size={20} />
+                  <span className="truncate">{t('question.bncc.modalTitle')}</span>
+                </h3>
+                <button
+                  type="button"
+                  className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                  onClick={() => setBnccModal(null)}
+                  aria-label={t('common.close')}
+                >
+                  <X size={22} />
+                </button>
+              </div>
+              <div className="overflow-y-auto p-4 space-y-4 flex-1 touch-pan-y overscroll-contain">
+                {'bncc' in bnccModal ? (
+                  bnccDetailRows(bnccModal.bncc).map((row) => (
+                    <div key={row.field}>
+                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                        {t(`question.bncc.fields.${row.field}`)}
+                      </div>
+                      <div className="text-sm text-slate-800 dark:text-slate-200 mt-0.5 whitespace-pre-wrap break-words">
+                        {row.value}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">{t('question.bncc.missingDetails')}</p>
+                    <p className="text-xs font-mono text-slate-500 dark:text-slate-400 break-all">
+                      {t('question.bncc.missingId', { id: bnccModal.missingId })}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <button
+                  type="button"
+                  className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-bold text-sm touch-manipulation"
+                  onClick={() => setBnccModal(null)}
+                >
+                  {t('common.close')}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
